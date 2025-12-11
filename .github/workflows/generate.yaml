@@ -1,1 +1,42 @@
-test
+name: Build Washington Map
+
+on:
+  workflow_action:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Run map generation script
+      run: bash scripts/generate_map.sh
+
+    - name: Upload artifact for GitHub Pages
+      uses: actions/upload-pages-artifact@v2
+      with:
+        path: .
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: \${{ steps.deployment.outputs.page_url }}
+
+    steps:
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v2
