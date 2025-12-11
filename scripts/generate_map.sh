@@ -8,47 +8,67 @@ cat > "$OUTPUT" << EOF
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <title>Washington State Map</title>
+  <meta charset="UTF-8">
+  <title>Washington State ArcGIS Map</title>
+
+  <!-- ArcGIS CSS (required for proper styling) -->
+  <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css">
+
   <style>
-    html, body, #viewDiv {
-      margin: 0;
-      padding: 0;
+    html, body {
       height: 100%;
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    /* Container for the "window" holding the map */
+    #mapWindow {
+      position: absolute;
+      top: 50px;
+      left: 50px;
+      right: 50px;
+      bottom: 50px;
+      border: 2px solid #555;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+
+    #viewDiv {
       width: 100%;
-      font-family: sans-serif;
+      height: 100%;
     }
 
     #controls {
       position: absolute;
       top: 10px;
       left: 10px;
-      background: white;
-      padding: 10px;
-      border-radius: 6px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      background: rgba(255,255,255,0.9);
+      padding: 8px;
+      border-radius: 5px;
       z-index: 99;
+      font-size: 14px;
     }
   </style>
+
   <script src="https://js.arcgis.com/4.29/"></script>
 </head>
 
 <body>
+
 <div id="controls">
   <label><input type="checkbox" id="citiesToggle" checked> Show Cities</label><br>
   <label><input type="checkbox" id="countiesToggle" checked> Show Counties</label>
 </div>
-<div id="viewDiv"></div>
+
+<div id="mapWindow">
+  <div id="viewDiv"></div>
+</div>
 
 <script>
-// ================================
-// Load city data
-// ================================
 const cityData = JSON.parse("${CITY_DATA}");
 
-// ================================
-// Setup ArcGIS map
-// ================================
 require([
   "esri/Map",
   "esri/views/MapView",
@@ -62,23 +82,23 @@ require([
   });
 
   const view = new MapView({
-    container: "viewDiv",
+    container: "viewDiv",   // Must match the ID of the div in the page
     map: map,
     center: [-120.7401, 47.7511],
     zoom: 7
   });
 
   // ============================
-  // Washington Counties Layer
+  // Counties Layer (public REST)
   // ============================
   const counties = new FeatureLayer({
     url: "https://services.arcgis.com/jsIt88o09Q0r1j8h/ArcGIS/rest/services/Washington_State_Counties/FeatureServer/0",
-    opacity: 0.5
+    opacity: 0.4
   });
   map.add(counties);
 
   // ============================
-  // Cities Layer
+  // Cities
   // ============================
   const cityLayer = new GraphicsLayer();
   map.add(cityLayer);
@@ -86,13 +106,17 @@ require([
   cityData.forEach(city => {
     const pt = {
       type: "point",
-      latitude: city.lat,
-      longitude: city.lon
+      longitude: city.lon,
+      latitude: city.lat
     };
 
     const marker = new Graphic({
       geometry: pt,
-      symbol: { type: "simple-marker", size: 10, color: "red" },
+      symbol: {
+        type: "simple-marker",
+        size: 10,
+        color: "blue"
+      },
       attributes: city,
       popupTemplate: {
         title: "{name}",
@@ -106,8 +130,8 @@ require([
         type: "text",
         text: city.name,
         yoffset: 12,
-        color: "black",
-        font: { size: 11, weight: "bold" }
+        color: "#000",
+        font: { size: 12, weight: "bold" }
       }
     });
 
@@ -116,7 +140,7 @@ require([
   });
 
   // ============================
-  // Toggle controls
+  // Toggle layer visibility
   // ============================
   document.getElementById("citiesToggle").addEventListener("change", e => {
     cityLayer.visible = e.target.checked;
