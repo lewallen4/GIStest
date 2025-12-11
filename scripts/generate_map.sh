@@ -2,8 +2,9 @@
 set -euo pipefail
 
 OUTPUT="index.html"
+CITY_DATA=$(cat data/cities.json | sed 's/"/\\"/g')
 
-cat > "$OUTPUT" << 'EOF'
+cat > "$OUTPUT" << EOF
 <!DOCTYPE html>
 <html>
 <head>
@@ -11,84 +12,118 @@ cat > "$OUTPUT" << 'EOF'
   <title>Washington State Map</title>
   <style>
     html, body, #viewDiv {
-      padding: 0;
       margin: 0;
+      padding: 0;
       height: 100%;
       width: 100%;
+      font-family: sans-serif;
+    }
+
+    #controls {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 10px;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      z-index: 99;
     }
   </style>
   <script src="https://js.arcgis.com/4.29/"></script>
 </head>
+
 <body>
+<div id="controls">
+  <label><input type="checkbox" id="citiesToggle" checked> Show Cities</label><br>
+  <label><input type="checkbox" id="countiesToggle" checked> Show Counties</label>
+</div>
 <div id="viewDiv"></div>
 
 <script>
+// ================================
+// Load city data
+// ================================
+const cityData = JSON.parse("${CITY_DATA}");
+
+// ================================
+// Setup ArcGIS map
+// ================================
 require([
   "esri/Map",
   "esri/views/MapView",
+  "esri/layers/FeatureLayer",
   "esri/layers/GraphicsLayer",
   "esri/Graphic"
-], function(Map, MapView, GraphicsLayer, Graphic) {
+], function(Map, MapView, FeatureLayer, GraphicsLayer, Graphic) {
 
-  const map = new Map({ basemap: "streets-navigation-vector" });
+  const map = new Map({
+    basemap: "topo-vector"
+  });
 
   const view = new MapView({
     container: "viewDiv",
     map: map,
-    center: [-120.7401, 47.7511], // Washington center
+    center: [-120.7401, 47.7511],
     zoom: 7
   });
 
-  const cities = [
-    { name: "Seattle",       coords: [-122.3321, 47.6062] },
-    { name: "Spokane",       coords: [-117.4260, 47.6588] },
-    { name: "Tacoma",        coords: [-122.4443, 47.2529] },
-    { name: "Vancouver",     coords: [-122.6615, 45.6300] },
-    { name: "Bellevue",      coords: [-122.2007, 47.6101] },
-    { name: "Everett",       coords: [-122.2015, 47.9780] },
-    { name: "Olympia",       coords: [-122.9007, 47.0379] },
-    { name: "Bellingham",    coords: [-122.4787, 48.7491] },
-    { name: "Yakima",        coords: [-120.5059, 46.6021] },
-    { name: "Kennewick",     coords: [-119.1372, 46.2112] },
-    { name: "Richland",      coords: [-119.2845, 46.2857] },
-    { name: "Pasco",         coords: [-119.1006, 46.2396] },
-    { name: "Wenatchee",     coords: [-120.3103, 47.4235] }
-  ];
+  // ============================
+  // Washington Counties Layer
+  // ============================
+  const counties = new FeatureLayer({
+    url: "https://services.arcgis.com/jsIt88o09Q0r1j8h/ArcGIS/rest/services/Washington_State_Counties/FeatureServer/0",
+    opacity: 0.5
+  });
+  map.add(counties);
 
-  const layer = new GraphicsLayer();
-  map.add(layer);
+  // ============================
+  // Cities Layer
+  // ============================
+  const cityLayer = new GraphicsLayer();
+  map.add(cityLayer);
 
-  cities.forEach(city => {
-    const point = {
+  cityData.forEach(city => {
+    const pt = {
       type: "point",
-      longitude: city.coords[0],
-      latitude: city.coords[1]
+      latitude: city.lat,
+      longitude: city.lon
     };
 
     const marker = new Graphic({
-      geometry: point,
-      symbol: {
-        type: "simple-marker",
-        size: 10
-      },
+      geometry: pt,
+      symbol: { type: "simple-marker", size: 10, color: "red" },
       attributes: city,
       popupTemplate: {
-        title: "{name}"
+        title: "{name}",
+        content: "<b>Population:</b> {population}"
       }
     });
 
-    const text = new Graphic({
-      geometry: point,
+    const label = new Graphic({
+      geometry: pt,
       symbol: {
         type: "text",
         text: city.name,
         yoffset: 12,
-        font: { size: 10, weight: "bold" }
+        color: "black",
+        font: { size: 11, weight: "bold" }
       }
     });
 
-    layer.add(marker);
-    layer.add(text);
+    cityLayer.add(marker);
+    cityLayer.add(label);
+  });
+
+  // ============================
+  // Toggle controls
+  // ============================
+  document.getElementById("citiesToggle").addEventListener("change", e => {
+    cityLayer.visible = e.target.checked;
+  });
+
+  document.getElementById("countiesToggle").addEventListener("change", e => {
+    counties.visible = e.target.checked;
   });
 
 });
